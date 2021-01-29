@@ -30,6 +30,7 @@
   <link rel="manifest" href="manifest.json">
 
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.2.0/exceljs.min.js" integrity="sha512-3ZnqnLCRnyAXG2Hbb0v+DNzl5QYyRocJeG7Uwy5qBausA0jB5cLSZ4gHWHkbINJIyWU3vApjCwH1rNO4XEn9SQ==" crossorigin="anonymous"></script>
 </head>
 <body>
   <!-- This script installs service_worker.js to provide PWA functionality to
@@ -38,8 +39,109 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('flutter-first-frame', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js?v=2094510310');
+        navigator.serviceWorker.register('flutter_service_worker.js?v=1051764939');
       });
+    }
+  </script>
+
+  <script>
+    var rules = {};
+
+    function uploadFile() {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = 'false';
+      input.accept = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      input.style='display:none';
+      input.addEventListener('change', handleFile, false);
+      document.body.appendChild(input);
+      input.click();
+      document.body.removeChild(input);
+    }
+
+    function handleFile(e) {
+      var files = e.target.files, f = files[0];
+      var reader = new FileReader();
+      reader.onload = async (e) => {
+        let buffer = reader.result;
+        const wb = new ExcelJS.Workbook();
+        wb.xlsx.load(buffer).then(async workbook => {
+          workbook.eachSheet((sheet, id) => {
+            sheet.columns.forEach((col) => {
+              col.eachCell((cell, rowIndex) => {
+                if(cell.value != null && cell.value.startsWith != null) {
+                  if(cell.value.startsWith('&')) {
+                    cell.value = formatString(cell.value.substring(1));
+                  }
+                }
+              })
+            });
+          });
+
+          const buf = await workbook.xlsx.writeBuffer();
+          let a = document.createElement('a');
+          let data = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+          let url = URL.createObjectURL(data);
+          a.href = url;
+          a.download = 'export.xlsx';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        });
+      }
+      reader.readAsArrayBuffer(f);
+    }
+
+    function formatString(format) {
+      format = format.split('@');
+      if(format.length != 2) return '';
+      let projection = format[0];
+      let where = format[1];
+
+      where = where.split('_');
+      if(where.length < 0 || where.length > 3) return '';
+      where = where.map(e => parseInt(e, 10));
+      if(where.some(e => isNaN(e))) return '';
+
+      if(where.length == 0) {
+        let target = rule;
+        if(target == null) return '';
+        projection = projection.replaceAll('{name}', target['title']);
+        projection = projection.replaceAll('{credit}', target['totalCredit'].toString());
+      } else if(where.length == 1) {
+        if(where[0] >= rules.rules.length) return '';
+        let target = rules.rules[where[0]];
+        if(target == null) return '';
+        projection = projection.replaceAll('{name}', target['title']);
+        projection = projection.replaceAll('{credit}', target['totalCredit'].toString());
+      } else if(where.length == 2) {
+        if(where[1] >= rules.rules[where[0]].length) return '';
+        let target = rules.rules[where[0]].courseList[where[1]];
+        projection = projection.replaceAll('{name}', target['title']);
+        projection = projection.replaceAll('{credit}', target['totalCredit'].toString());
+      } else {
+        if(where[2] >= rules.rules[where[0]].courseList[where[1]].length) return '';
+        let target = rules.rules[where[0]].courseList[where[1]].courses[where[2]];
+        if(target == null) return '';
+        projection = projection.replaceAll('{name}', target['name']);
+        projection = projection.replaceAll('{year}', target['year'].toString());
+        projection = projection.replaceAll('{semester}', target['semester'].toString());
+        projection = projection.replaceAll('{category}', target['category']);
+        projection = projection.replaceAll('{department}', target['department']);
+        projection = projection.replaceAll('{credit}', target['credit'].toString());
+        projection = projection.replaceAll('{score}', (target['score'] != -1 ? target['score'].toString() : target['grade'] != ' ' ? target['grade'] : '尚無資料'));
+        projection = projection.replaceAll('{grade}', target['grade']);
+        projection = projection.replaceAll('{teacher}', target['teacher']);
+        projection = projection.replaceAll('{additionalInfo}', target['additionalInfo']);
+      }
+      return projection;
+    }
+
+    function handleXLSX(rule) {
+      rules = JSON.parse(rule);
+      uploadFile();
+
     }
   </script>
   <script src="main.dart.js" type="application/javascript"></script>
