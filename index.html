@@ -39,7 +39,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('flutter-first-frame', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js?v=1051764939');
+        navigator.serviceWorker.register('flutter_service_worker.js?v=2393284282');
       });
     }
   </script>
@@ -94,46 +94,86 @@
     }
 
     function formatString(format) {
-      format = format.split('@');
+      format = format.split('#');
       if(format.length != 2) return '';
       let projection = format[0];
       let where = format[1];
 
       where = where.split('_');
       if(where.length < 0 || where.length > 3) return '';
-      where = where.map(e => parseInt(e, 10));
-      if(where.some(e => isNaN(e))) return '';
+      where = where.map(e => {
+        let l = e.split('-');
+        return l.map(v => parseInt(v, 10));
+      });
+      if(where.some(e => e.some(v => isNaN(v)))) return '';
+      if(where.some(e => e.length > 2)) return '';
+      where.forEach(e => {
+        if(e.length == 1) e.push(e[0]);
+      });
 
+      let target = [rules];
+      if(where.length > 0) {
+        if(target.some(e => e.rules.length <= where[0][1])) return '';
+        let t = [];
+        target.forEach(e => {
+          t.push(...e.rules.slice(where[0][0], where[0][1]+1));
+        });
+        target = t;
+      }
+      if(where.length > 1) {
+        if(target.some(e => e.courseList.length <= where[1][1])) return '';
+        let t = [];
+        target.forEach(e => {
+          t.push(...e.courseList.slice(where[1][0], where[1][1]+1));
+        });
+        target = t;
+      }
+      if(where.length > 2) {
+        if(target.some(e => e.courses.length <= where[2][1])) return '';
+        let t = [];
+        target.forEach(e => {
+          t.push(...e.courses.slice(where[2][0], where[2][1]+1));
+        })
+        target = t;
+      }
+
+      let t = [];
+      target.forEach(e => { if(e != null) t.push(e); });
+      target = t;
+      console.log(target);
+      if(!target.length) return '';
+      
       if(where.length == 0) {
-        let target = rule;
-        if(target == null) return '';
-        projection = projection.replaceAll('{name}', target['title']);
-        projection = projection.replaceAll('{credit}', target['totalCredit'].toString());
+        let totalCredit = target.reduce((acc, val) => acc + val.totalCredit, 0);
+        let title = target[0].title;
+
+        projection = projection.replaceAll('{name}', title);
+        projection = projection.replaceAll('{credit}', totalCredit.toString());
       } else if(where.length == 1) {
-        if(where[0] >= rules.rules.length) return '';
-        let target = rules.rules[where[0]];
-        if(target == null) return '';
-        projection = projection.replaceAll('{name}', target['title']);
-        projection = projection.replaceAll('{credit}', target['totalCredit'].toString());
+        let totalCredit = target.reduce((acc, val) => acc + val.totalCredit, 0);
+        let title = target[0].title;
+
+        projection = projection.replaceAll('{name}', title);
+        projection = projection.replaceAll('{credit}', totalCredit.toString());
       } else if(where.length == 2) {
-        if(where[1] >= rules.rules[where[0]].length) return '';
-        let target = rules.rules[where[0]].courseList[where[1]];
-        projection = projection.replaceAll('{name}', target['title']);
-        projection = projection.replaceAll('{credit}', target['totalCredit'].toString());
+        let totalCredit = target.reduce((acc, val) => acc + val.totalCredit, 0);
+        let title = target[0].title;
+
+        projection = projection.replaceAll('{name}', title);
+        projection = projection.replaceAll('{credit}', totalCredit.toString());
       } else {
-        if(where[2] >= rules.rules[where[0]].courseList[where[1]].length) return '';
-        let target = rules.rules[where[0]].courseList[where[1]].courses[where[2]];
-        if(target == null) return '';
-        projection = projection.replaceAll('{name}', target['name']);
-        projection = projection.replaceAll('{year}', target['year'].toString());
-        projection = projection.replaceAll('{semester}', target['semester'].toString());
-        projection = projection.replaceAll('{category}', target['category']);
-        projection = projection.replaceAll('{department}', target['department']);
-        projection = projection.replaceAll('{credit}', target['credit'].toString());
-        projection = projection.replaceAll('{score}', (target['score'] != -1 ? target['score'].toString() : target['grade'] != ' ' ? target['grade'] : '尚無資料'));
-        projection = projection.replaceAll('{grade}', target['grade']);
-        projection = projection.replaceAll('{teacher}', target['teacher']);
-        projection = projection.replaceAll('{additionalInfo}', target['additionalInfo']);
+        let totalCredit = target.reduce((acc, val) => acc + val.credit, 0);
+        
+        projection = projection.replaceAll('{name}', target[0]['name']);
+        projection = projection.replaceAll('{year}', target[0]['year'].toString());
+        projection = projection.replaceAll('{semester}', target[0]['semester'].toString());
+        projection = projection.replaceAll('{category}', target[0]['category']);
+        projection = projection.replaceAll('{department}', target[0]['department']);
+        projection = projection.replaceAll('{credit}', totalCredit.toString());
+        projection = projection.replaceAll('{score}', (target[0]['score'] != -1 ? target[0]['score'].toString() : target[0]['grade'] != ' ' ? target[0]['grade'] : '尚無資料'));
+        projection = projection.replaceAll('{grade}', target[0]['grade']);
+        projection = projection.replaceAll('{teacher}', target[0]['teacher']);
+        projection = projection.replaceAll('{additionalInfo}', target[0]['additionalInfo']);
       }
       return projection;
     }
