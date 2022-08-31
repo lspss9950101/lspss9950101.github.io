@@ -1,53 +1,296 @@
-<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+    <style>
+        body {
+            text-align: center;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            background-color: #202020;
+        }
+        .tab {
+            font-size: 32;
+            width: 30%;
+            height: 50;
+            background-color: white;
+            margin: 4;
+            transition-duration: 0.4s;
+            text-align: center;
+            border: 2px solid #fff0;
+        }
+        .tab:hover {
+            background-color: #202020;
+            color: white;
+            border: 2px solid #fff;
+        }
+    </style>
+    <body>
+        <button id='hints_tab' class='tab'>Hints</button>
+        <button id='codenames_tab' class='tab'>Codenames</button>
+        <input id='codes' placeholder='CODES' class='tab' />
+        <canvas id='canvas'></canvas>
+    </body>
+    <script>
+        const body = document.body;
+        body.style.margin = '0';
+        body.style.padding = '0';
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        canvas.style.display = 'block';
 
-  <!-- iOS meta tags & icons -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="werewolf">
+        window.addEventListener('resize', resizeCanvas, false);
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - 58;
+            drawBoard();
+        }
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+        function drawImage(url, x, y, width, height, sx, sy, swidth, sheight) {
+            return new Promise((resolve, reject) => {
+                let img = new Image();
+                img.addEventListener('load', function() {
+                    if (sx == undefined)
+                        context.drawImage(img, canvas.width / 2 - width / 2 + x, canvas.height / 2 - height / 2 + y, width, height);
+                    else
+                        context.drawImage(img, sx, sy, swidth, sheight, canvas.width / 2 - width / 2 + x, canvas.height / 2 - height / 2 + y, width, height);
+                    resolve();
+                }, false);
+                img.src = url;
+            });
+        }
 
-  <title>Werewolves of Miller's Hollow</title>
-  
-  
+        const BACK_R = 'https://i.imgur.com/nfHtNj4.png';
+        const BACK_B = 'https://i.imgur.com/7P5d8gQ.png';
+        const HINT_R = 'https://i.imgur.com/smnVu9S.png';
+        const HINT_B = 'https://i.imgur.com/DLDb7HT.png';
+        const HINT_Y = 'https://i.imgur.com/rzmzEAM.png';
+        const HINT_K = 'https://i.imgur.com/QDnwQt9.png';
+        const CODENAMES = 'https://i.imgur.com/ybBYTFo.jpg';
+        const AGENT_R0 = 'https://i.imgur.com/YaFQ1no.png';
+        const AGENT_R1 = 'https://i.imgur.com/kzICSRV.png';
+        const AGENT_R2 = 'https://i.imgur.com/oHUFah6.png';
+        const AGENT_B0 = 'https://i.imgur.com/dHJ7IQh.png';
+        const AGENT_B1 = 'https://i.imgur.com/MZCWtE7.png';
+        const AGENT_B2 = 'https://i.imgur.com/V1IlLX1.png';
+        const AGENT_Y0 = 'https://i.imgur.com/DDuq9V7.png';
+        const AGENT_Y1 = 'https://i.imgur.com/lEiPLZ8.png';
+        const AGENT_K = 'https://i.imgur.com/1mNVNWr.png';
 
-	<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
-	<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
-	<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
-	<link rel="manifest" href="icons/site.webmanifest">
-	<link rel="mask-icon" href="icons/safari-pinned-tab.svg" color="#5bbad5">
-	<link rel="shortcut icon" href="icons/favicon.ico">
-	<meta name="msapplication-TileColor" content="#da532c">
-	<meta name="msapplication-config" content="icons/browserconfig.xml">
-	<meta name="theme-color" content="#ffffff">
 
+        var cur_drawing = '';
+        var background = 'r';
+        const hints = []; // 0: r, 1: b, 2: y, 3: k, 8+9+7+1
+        const codenames_num = 40 * 10;
+        const codenames_height = 228;
+        const codenames_width = 358;
+        const codenames = Array(25);
+        const variants = Array(25);
+        const flipped = Array(25);
 
-</head>
-<body style='background-color: #222'>
-	
-	<img src='assets/splash_screen.png' style='max-width: 80%; max-height: 80%; margin: 0;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    margin-right: -50%;
-    transform: translate(-50%, -50%)' />
-	
-  <!-- This script installs service_worker.js to provide PWA functionality to
-       application. For more information, see:
-       https://developers.google.com/web/fundamentals/primers/service-workers -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js');
-      });
-    }
-  </script>
-  <script src="main.dart.js" type="application/javascript"></script>
-</body>
+        function onClickHints() {
+            randomize_hint();
+            cur_drawing = 'hints';
+            drawBoard();
+        }
+
+        function onClickCodenames() {
+            randomize_codenames();
+            cur_drawing = 'codenames';
+            drawBoard();
+        }
+
+        function onClickCanvas(e) {
+            if (cur_drawing != 'codenames') return;
+            let scale = Math.min(canvas.height / codenames_height, canvas.width / codenames_width) / 5;
+            let scaled_codename_width = codenames_width * scale;
+            let scaled_codename_height = codenames_height * scale;
+            let offset_x = Math.floor((canvas.width - scaled_codename_width * 5) / 2);
+            let offset_y = Math.floor((canvas.height - scaled_codename_height * 5) / 2);
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left - offset_x;
+            const y = e.clientY - rect.top - offset_y;
+
+            const chosen_x = Math.floor(x / scaled_codename_width);
+            const chosen_y = Math.floor(y / scaled_codename_height);
+            if (chosen_x < 0 || chosen_x >= 5 || chosen_y < 0 || chosen_y >= 5) return;
+            flipped[chosen_x+chosen_y*5] = !flipped[chosen_x+chosen_y*5];
+
+            drawBoard();
+        }
+
+        function randomize_hint() {
+            if (Math.random() >= 0.5) background = 'r';
+            else background = 'b';
+            hints.length = 0;
+            if (background == 'r') {
+                for (let i = 0; i < 9; i++)
+                    hints.push('r');
+                for (let i = 0; i < 8; i++)
+                    hints.push('b');
+                for (let i = 0; i < 7; i++)
+                    hints.push('y');
+                hints.push('k');
+            } else {
+                for (let i = 0; i < 8; i++)
+                    hints.push('r');
+                for (let i = 0; i < 9; i++)
+                    hints.push('b');
+                for (let i = 0; i < 7; i++)
+                    hints.push('y');
+                hints.push('k');
+            }
+            shuffle(hints);
+            console.log(hints);
+
+            document.getElementById('codes').value = encode_code(hints);
+        }
+
+        function encode_code(hints) {
+            code = 0;
+            for (let i = 0; i < 25; i++) {
+                code *= 4;
+                switch (hints[i]) {
+                    case 'r':
+                        code += 0;
+                        break;
+                    case 'b':
+                        code += 1;
+                        break;
+                    case 'y':
+                        code += 2;
+                        break;
+                    case 'k':
+                        code += 3;
+                        break;
+                }
+            }
+
+            const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            let ret = '';
+            for (let i = 0; i < 10; i++) {
+                ret += chars[code % 36];
+                code = Math.floor(code / 36);
+            }
+            return ret;
+        }
+
+        function decode_code(code) {
+            const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            let n = 0;
+            for (let i = 9; i >= 0; i--) {
+                n *= 36;
+                if (code[i] != undefined)
+                    n += chars.indexOf(code[i]);
+            }
+            if (n < 0 || n >= 1125899906842624) n = 0;
+
+            var ret = Array(25);
+            for (let i = 0; i < 25; i++) {
+                switch (n % 4) {
+                    case 0:
+                        ret[i] = 'r';
+                        break;
+                    case 1:
+                        ret[i] = 'b';
+                        break;
+                    case 2:
+                        ret[i] = 'y';
+                        break;
+                    case 3:
+                        ret[i] = 'k';
+                        break;
+                }
+                n =  Math.floor(n / 4);
+            }
+            return ret.reverse();
+        }
+
+        function randomize_codenames() {
+            let pool = [...Array(codenames_num).keys()];
+            shuffle(pool);
+            for (let i = 0; i < 25; i++)
+                codenames[i] = pool[i];
+            console.log(codenames);
+            for (let i = 0; i < 25; i++) {
+                flipped[i] = false;
+                variants[i] = Math.random();
+            }
+        }
+
+        function shuffle(arr) {
+            for (let i = arr.length-1; i > 0; i--) {
+                let j = Math.floor(Math.random() * (i+1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+    
+        function drawBoard() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            if (cur_drawing == 'hints') {
+                let size = Math.min(canvas.height, canvas.width);
+                let inner_size = size * 367 / 500.0;
+                let offset = (size - inner_size) / 2.0;
+                let hint_size = inner_size / 5.0;
+                drawImage(background=='b' ? BACK_B : BACK_R, 0, 0, size, size).then(() => {
+                    for (let i = 0; i < 25; i++) {
+                        let img = '';
+                        switch (hints[i]) {
+                            case 'r':
+                                img = HINT_R;
+                                break;
+                            case 'b':
+                                img = HINT_B;
+                                break;
+                            case 'y':
+                                img = HINT_Y;
+                                break;
+                            case 'k':
+                                img = HINT_K;
+                                break;
+                        }
+                        drawImage(img, hint_size * (i%5 - 2), hint_size * (Math.floor(i/5) - 2), hint_size, hint_size);
+                    }
+                });
+            } else if (cur_drawing == 'codenames') {
+                let scale = Math.min(canvas.height / codenames_height, canvas.width / codenames_width) / 5;
+                let scaled_codename_width = codenames_width * scale;
+                let scaled_codename_height = codenames_height * scale;
+                
+                tasks = [];
+                for (let i = 0; i < 25; i++) {
+                    let x = codenames[i] % 10;
+                    let y = Math.floor(codenames[i] / 10);
+                    tasks.push(drawImage(CODENAMES, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4, codenames_width * x, codenames_height * y, codenames_width, codenames_height));
+                }
+
+                let overlay = decode_code(document.getElementById('codes').value);
+                Promise.all(tasks).then(() => {
+                    for (let i = 0; i < 25; i++) {
+                        if (!flipped[i]) continue;
+                        switch (overlay[i]) {
+                            case 'r':
+                                drawImage(variants[i] < 0.33 ? AGENT_R0 : variants[i] < 0.66 ? AGENT_R1 : AGENT_R2, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4);
+                                break;
+                            case 'b':
+                                drawImage(variants[i] < 0.33 ? AGENT_B0 : variants[i] < 0.66 ? AGENT_B1 : AGENT_B2, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4);
+                                break;
+                            case 'y':
+                                drawImage(variants[i] < 0.5 ? AGENT_Y0 : AGENT_Y1, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4);
+                                break;
+                            case 'k':
+                                drawImage(AGENT_K, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4);
+                                break;
+                        }
+                    }
+                });
+            }
+        }
+        
+        document.getElementById('hints_tab').addEventListener('click', () => onClickHints());
+        document.getElementById('codenames_tab').addEventListener('click', () => onClickCodenames());
+        canvas.addEventListener('click', (e) => onClickCanvas(e));
+        resizeCanvas();
+    </script>
 </html>
