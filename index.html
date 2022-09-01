@@ -10,10 +10,15 @@
             user-select: none;
             background-color: #202020;
         }
+        .canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
         .tab {
             font-size: 32;
             width: 30%;
-            height: 50;
+            height: 40;
             background-color: white;
             margin: 4;
             transition-duration: 0.4s;
@@ -30,20 +35,25 @@
         <button id='hints_tab' class='tab'>Hints</button>
         <button id='codenames_tab' class='tab'>Codenames</button>
         <input id='codes' placeholder='CODES' class='tab' />
-        <canvas id='canvas'></canvas>
+        <button id='refresh' class='tab' style='width: 40'>&#x21bb;</button>
+        <canvas id='canvas1'></canvas>
+        <canvas id='canvas2'></canvas>
     </body>
     <script>
         const body = document.body;
         body.style.margin = '0';
         body.style.padding = '0';
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
-        canvas.style.display = 'block';
+        var canvas = [document.getElementById('canvas1'), document.getElementById('canvas2')];
+        var context = canvas[1].getContext('2d');
+        canvas[0].style.display = 'block';
+        canvas[1].style.display = 'none';
 
         window.addEventListener('resize', resizeCanvas, false);
         function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight - 58;
+            canvas[0].width = window.innerWidth;
+            canvas[0].height = window.innerHeight - 58;
+            canvas[1].width = window.innerWidth;
+            canvas[1].height = window.innerHeight - 58;
             drawBoard();
         }
 
@@ -52,13 +62,22 @@
                 let img = new Image();
                 img.addEventListener('load', function() {
                     if (sx == undefined)
-                        context.drawImage(img, canvas.width / 2 - width / 2 + x, canvas.height / 2 - height / 2 + y, width, height);
+                        context.drawImage(img, canvas[1].width / 2 - width / 2 + x, canvas[1].height / 2 - height / 2 + y, width, height);
                     else
-                        context.drawImage(img, sx, sy, swidth, sheight, canvas.width / 2 - width / 2 + x, canvas.height / 2 - height / 2 + y, width, height);
+                        context.drawImage(img, sx, sy, swidth, sheight, canvas[1].width / 2 - width / 2 + x, canvas[1].height / 2 - height / 2 + y, width, height);
                     resolve();
                 }, false);
                 img.src = url;
             });
+        }
+
+        function swapBuffer() {
+            canvas = canvas.reverse();
+            context = canvas[1].getContext('2d');
+            canvas[0].style.display = 'block';
+            canvas[1].style.display = 'none';
+            canvas[0].addEventListener('click', onClickCanvas);
+            canvas[1].removeEventListener('click', onClickCanvas);
         }
 
         const BACK_R = 'https://i.imgur.com/nfHtNj4.png';
@@ -78,8 +97,15 @@
         const AGENT_Y1 = 'https://i.imgur.com/lEiPLZ8.png';
         const AGENT_K = 'https://i.imgur.com/1mNVNWr.png';
 
+        function preload(srcs) {
+            return Promise.all(srcs.map(src => new Promise((resolve, _) => {
+                let img = new Image();
+                img.onload = resolve;
+                img.src = src;
+            })));
+        }        
 
-        var cur_drawing = '';
+        var cur_drawing = 'hints';
         var background = 'r';
         const hints = []; // 0: r, 1: b, 2: y, 3: k, 8+9+7+1
         const codenames_num = 40 * 10;
@@ -90,34 +116,40 @@
         const flipped = Array(25);
 
         function onClickHints() {
-            randomize_hint();
             cur_drawing = 'hints';
             drawBoard();
         }
 
         function onClickCodenames() {
-            randomize_codenames();
             cur_drawing = 'codenames';
             drawBoard();
         }
 
-        function onClickCanvas(e) {
-            if (cur_drawing != 'codenames') return;
-            let scale = Math.min(canvas.height / codenames_height, canvas.width / codenames_width) / 5;
-            let scaled_codename_width = codenames_width * scale;
-            let scaled_codename_height = codenames_height * scale;
-            let offset_x = Math.floor((canvas.width - scaled_codename_width * 5) / 2);
-            let offset_y = Math.floor((canvas.height - scaled_codename_height * 5) / 2);
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left - offset_x;
-            const y = e.clientY - rect.top - offset_y;
-
-            const chosen_x = Math.floor(x / scaled_codename_width);
-            const chosen_y = Math.floor(y / scaled_codename_height);
-            if (chosen_x < 0 || chosen_x >= 5 || chosen_y < 0 || chosen_y >= 5) return;
-            flipped[chosen_x+chosen_y*5] = !flipped[chosen_x+chosen_y*5];
-
+        function onRefresh() {
+            if (cur_drawing == 'codenames')
+                randomize_codenames();
+            else
+                randomize_hint();
             drawBoard();
+        }
+
+        function onClickCanvas(e) {
+            if (cur_drawing == 'codenames') {
+                let scale = Math.min(canvas[0].height / codenames_height, canvas[0].width / codenames_width) / 5;
+                let scaled_codename_width = codenames_width * scale;
+                let scaled_codename_height = codenames_height * scale;
+                let offset_x = Math.floor((canvas[0].width - scaled_codename_width * 5) / 2);
+                let offset_y = Math.floor((canvas[0].height - scaled_codename_height * 5) / 2);
+                const rect = canvas[0].getBoundingClientRect();
+                const x = e.clientX - rect.left - offset_x;
+                const y = e.clientY - rect.top - offset_y;
+
+                const chosen_x = Math.floor(x / scaled_codename_width);
+                const chosen_y = Math.floor(y / scaled_codename_height);
+                if (chosen_x < 0 || chosen_x >= 5 || chosen_y < 0 || chosen_y >= 5) return;
+                flipped[chosen_x+chosen_y*5] = !flipped[chosen_x+chosen_y*5];
+                drawBoard();
+            }
         }
 
         function randomize_hint() {
@@ -227,13 +259,14 @@
         }
     
         function drawBoard() {
-            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.clearRect(0, 0, canvas[1].width, canvas[1].height);
             if (cur_drawing == 'hints') {
-                let size = Math.min(canvas.height, canvas.width);
+                let size = Math.min(canvas[1].height, canvas[1].width);
                 let inner_size = size * 367 / 500.0;
                 let offset = (size - inner_size) / 2.0;
                 let hint_size = inner_size / 5.0;
                 drawImage(background=='b' ? BACK_B : BACK_R, 0, 0, size, size).then(() => {
+                    let p = [];
                     for (let i = 0; i < 25; i++) {
                         let img = '';
                         switch (hints[i]) {
@@ -250,11 +283,14 @@
                                 img = HINT_K;
                                 break;
                         }
-                        drawImage(img, hint_size * (i%5 - 2), hint_size * (Math.floor(i/5) - 2), hint_size, hint_size);
+                        p.push(drawImage(img, hint_size * (i%5 - 2), hint_size * (Math.floor(i/5) - 2), hint_size, hint_size));
                     }
+                    return Promise.all(p);
+                }).then(() => {
+                    swapBuffer();
                 });
             } else if (cur_drawing == 'codenames') {
-                let scale = Math.min(canvas.height / codenames_height, canvas.width / codenames_width) / 5;
+                let scale = Math.min(canvas[1].height / codenames_height, canvas[1].width / codenames_width) / 5;
                 let scaled_codename_width = codenames_width * scale;
                 let scaled_codename_height = codenames_height * scale;
                 
@@ -267,30 +303,38 @@
 
                 let overlay = decode_code(document.getElementById('codes').value);
                 Promise.all(tasks).then(() => {
+                    let p = [];
                     for (let i = 0; i < 25; i++) {
                         if (!flipped[i]) continue;
                         switch (overlay[i]) {
                             case 'r':
-                                drawImage(variants[i] < 0.33 ? AGENT_R0 : variants[i] < 0.66 ? AGENT_R1 : AGENT_R2, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4);
+                                p.push(drawImage(variants[i] < 0.33 ? AGENT_R0 : variants[i] < 0.66 ? AGENT_R1 : AGENT_R2, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4));
                                 break;
                             case 'b':
-                                drawImage(variants[i] < 0.33 ? AGENT_B0 : variants[i] < 0.66 ? AGENT_B1 : AGENT_B2, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4);
+                                p.push(drawImage(variants[i] < 0.33 ? AGENT_B0 : variants[i] < 0.66 ? AGENT_B1 : AGENT_B2, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4));
                                 break;
                             case 'y':
-                                drawImage(variants[i] < 0.5 ? AGENT_Y0 : AGENT_Y1, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4);
+                                p.push(drawImage(variants[i] < 0.5 ? AGENT_Y0 : AGENT_Y1, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4));
                                 break;
                             case 'k':
-                                drawImage(AGENT_K, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4);
+                                p.push(drawImage(AGENT_K, scaled_codename_width * (i%5 - 2), scaled_codename_height * (Math.floor(i/5) - 2), scaled_codename_width - 4, scaled_codename_height - 4));
                                 break;
                         }
                     }
+                    return Promise.all(p);
+                }).then(() => {
+                    swapBuffer();
                 });
             }
         }
         
-        document.getElementById('hints_tab').addEventListener('click', () => onClickHints());
-        document.getElementById('codenames_tab').addEventListener('click', () => onClickCodenames());
-        canvas.addEventListener('click', (e) => onClickCanvas(e));
-        resizeCanvas();
+        preload([BACK_R, BACK_B, HINT_R, HINT_B, HINT_Y, HINT_K, CODENAMES, AGENT_R0, AGENT_R1, AGENT_R2, AGENT_B0, AGENT_B1, AGENT_B2, AGENT_Y0, AGENT_Y1, AGENT_K]).then(() => {
+            randomize_hint();
+            randomize_codenames();
+            document.getElementById('hints_tab').addEventListener('click', () => onClickHints());
+            document.getElementById('codenames_tab').addEventListener('click', () => onClickCodenames());
+            document.getElementById('refresh').addEventListener('click', () => onRefresh());
+            resizeCanvas();
+        });
     </script>
 </html>
